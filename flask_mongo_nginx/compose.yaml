@@ -1,0 +1,56 @@
+services:
+  proxy:
+    image: nginx:1.29.1
+    container_name: nginxReverseProxy
+    restart: always
+    environment:
+      FLASK_APP_SERVER: backend:9999
+      MONGODB_SERVER: db:27017
+    volumes:
+      - ${LOC}/nginx/nginx_proxy.conf:/tmp/nginx_proxy.template.conf
+    command: /bin/bash -c "envsubst < /tmp/nginx_proxy.template.conf > /etc/nginx/conf.d/proxy.conf && nginx -g 'daemon off;'"
+    ports:
+      - 5050:80
+    depends_on:
+      - backend 
+    networks:
+      - FMN
+
+  backend:
+    build:
+      context: app/
+      target: builder
+    container_name: flask_app
+    ports:
+     - 9999:9999
+    secrets:
+      - mongo_root_pass
+    depends_on:
+      - db
+    networks:
+      - FMN
+    
+  db:
+    image: mongo:8.0-noble
+    ports:
+     - 27017:27017
+    restart: always
+    container_name: mongoContainer
+    env_file:
+      - app/.env
+    secrets:
+      - mongo_root_pass
+    volumes:
+      - ${LOC}/data:/data
+    networks:
+      - FMN
+
+networks:
+  FMN:
+
+secrets:
+  mongo_root_pass:
+    file: ~/flask_intro/flask_mongo_nginx/secret/mongo_root_pass.txt
+
+
+
