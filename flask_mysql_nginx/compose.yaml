@@ -1,0 +1,51 @@
+services:
+  flask:
+    container_name: flask_apps
+    build:
+      context: ./app
+      target: builder
+    environment:
+      MARIADB_SERVER: ${SERVER}
+      MARIADB_PORT: 3306
+      MDB_USER: ${USER}
+      MDB_PASSWORD: ${PASSWORD}
+      DB_NAME: ${DB}
+    networks:
+      - flask_mysql
+    depends_on:
+      - mariadb
+
+  mariadb:
+    container_name: mariadb
+    image: mariadb:12.1.1-rc 
+    ports:
+      - 3306:3306
+    volumes:
+      - ~/flask_intro/flask_mysql_nginx/mysql/data:/var/lib/mysql
+      - ~/flask_intro/flask_mysql_nginx/mysql/secret:/run/secrets/
+    environment:
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/root_pass.txt
+      MARIADB_USER: ${USER}
+      MARIADB_PASSWORD: ${PASSWORD}
+      MARIADB_DATABASE: ${DB}
+    networks:
+      - flask_mysql
+
+  nginx:
+    container_name: nginx_proxy
+    image: nginx:1.29.1-alpine-perl
+    ports:
+      - 1111:80
+    volumes:
+      - ~/flask_intro/flask_mysql_nginx/nginx:/tmp/nginx
+    environment:
+      FLASK_APP_SERVER: flask:5000
+    command: /bin/sh -c "envsubst < /tmp/nginx/nginx_proxy.conf > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;' "
+    networks:
+      - flask_mysql
+    depends_on:
+      - flask
+      - mariadb
+
+networks:
+  flask_mysql:
